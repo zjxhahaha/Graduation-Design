@@ -50,8 +50,10 @@ def cube(img_shape, mask_shape, position):
 
 if __name__=="__main__":
     #l=list()
-    root_img_path = "Data/T1_mask/Test/T1/"
-    save_path = "Data/T1_mask/Test/cube_mask_larger/"
+    # root_img_path = "Data/T1_mask/Test/T1/"
+    # save_path = "Data/T1_mask/Test/cube_mask_larger/"
+    root_img_path = "/opt/zhaojinxin/TSAN/brain_age_estimation_transfer_learning/train/"
+    save_path = "/opt/zhaojinxin/TSAN/TSAN_Cube_mask_data/"
     file_list = os.listdir(root_img_path)
     N = 0
     for idx in range(0, len(file_list)):
@@ -65,13 +67,15 @@ if __name__=="__main__":
         print('number of mask:', iterations)
 
         masked_img = img_data
-        mask = np.zeros(img_shape)
+        mask = np.zeros(img_shape)#生成一个大小相同的全零矩阵
 
         for i in range(iterations):
             random_radius = randint(5,20)
             random_center_x, random_center_y, random_center_z = randint(20, 70), randint(20, 100), randint(20, 70) 
             # mask = sphere(img_shape, random_radius, (random_center_x, random_center_y, random_center_z))
+            #生成矩形
             random_width, random_height, random_deep = randint(5,30), randint(5,30), randint(5,30)
+            #这里mask可能有点文件，也就是说会产生大于1的数字
             mask =  mask + cube(img_shape,(random_width, random_height, random_deep), (random_center_x, random_center_y, random_center_z))
             print((random_center_x, random_center_y, random_center_z),np.sum(mask))
             # masked_img = masked_img * mask 
