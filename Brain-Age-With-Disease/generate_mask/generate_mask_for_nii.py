@@ -56,8 +56,8 @@ if __name__=="__main__":
     file_list = os.listdir(root_img_path)
     N = 0
     #用于循环获得相当应的每一个图像
-    # for idx in range(0, len(file_list)):
-    for idx in range(0, 1):
+    for idx in range(0, len(file_list)):
+    # for idx in range(0, 1):
         img = nib.load(os.path.join(root_img_path, file_list[idx]))
         affine = img.affine
         #对图形进行仿射变换
