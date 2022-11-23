@@ -60,7 +60,7 @@ if __name__=="__main__":
     # for idx in range(0, 1):
         img = nib.load(os.path.join(root_img_path, file_list[idx]))
         affine = img.affine
-        #对图形进行仿射变换
+        #对图形进行仿射  变换
         img_data = img.get_fdata()
         img_shape = img_data.shape
         # print("image shape:",img_shape)
