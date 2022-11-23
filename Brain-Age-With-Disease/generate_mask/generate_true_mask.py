@@ -48,10 +48,12 @@ def resample2size(img,new_size=[91,109,91]):
                             img.GetOrigin(),new_space,img.GetDirection(),0,img.GetPixelID())
     return resampled_img
 
-seg_path = "generate_mask/test_img/True_mask_format"
+#图片处理路径
+seg_path = "generate_mask/test_img/True_mask_format"#这个是format_name输出的文件
+#这个肯定是要处理的照片路径
 root_img_path = "/data/ziyang/workspace/Age-Estimation/brain_age_prediction/data/NC/combine/T1_mask/Test/T1/"
 # save_path = "/data/ziyang/workspace/Age-Estimation/brain_age_prediction/data/NC/combine/T1_mask/Test/true_mask/"
-save_path = "generate_mask/test_img/True_mask_resample"
+save_path = "generate_mask/test_img/True_mask_resample"#照片保存路径
 T1_file_list = os.listdir(root_img_path)
 seg_file_list = os.listdir(seg_path)
 
@@ -67,6 +69,7 @@ for idx in range(0, len(T1_file_list)):
         seg_file = seg_file_list[Random_seg_idx]
         print(seg_file)
         seg_img = sitk.ReadImage(os.path.join(seg_path, seg_file))
+        #将照片处理成91*109*91的输入
         seg_img = resample2size(seg_img)
         seg_img = sitk.GetArrayFromImage(seg_img)
         seg_img = np.where((seg_img <= 0.0), seg_img, 1)
