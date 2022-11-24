@@ -29,12 +29,14 @@ def cube(img_shape, mask_shape, position):
     # print('mask shape', mask.shape)
     width, height, deep = mask_shape[0], mask_shape[1], mask_shape[2]
     center_x, center_y, center_z = position[0], position[1], position[2]
-    mask[ 0, center_x - width // 2 : center_x + width // 2
+    mask[ :, center_x - width // 2 : center_x + width // 2
         , center_y - height // 2: center_y + height // 2
         , center_z - deep // 2 : center_z + deep // 2] = 1
     # print('mask.sum',mask.sum())
     return mask
 
-# img = np.ones((1,1,91,109,91))
+# img = np.ones((2,91,109,91))
+# print(img.sum(axis=1).sum(axis=1).sum(axis=1))
 # masked_img = cube_mask(img)
-# print(masked_img.min())
+# print(masked_img.sum(axis=1).sum(axis=1).sum(axis=1))
+# # print(masked_img.min())
