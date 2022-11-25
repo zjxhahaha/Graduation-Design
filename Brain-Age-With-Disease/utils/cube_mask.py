@@ -3,7 +3,7 @@ import torch,random
 import nibabel as nib
 import numpy as np
 from random import randint, seed 
-
+#实际上输入的图像是四维的，原始代码中生成mask是按照三维的来生成的，因此在赋值上出现了一些问题，导致最后输出的mask_img和输入的img一样
 def cube_mask(image, number_cube_range=[1,5], cube_size=[5,30]):
     iterations = random.randint(number_cube_range[0], number_cube_range[1])
     masked_img = image
