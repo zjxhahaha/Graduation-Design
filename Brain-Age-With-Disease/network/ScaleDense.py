@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class SE_block(nn.Module):
     def __init__(self, inchannels, reduction = 16 ):
         super(SE_block,self).__init__()
-        self.GAP = nn.AdaptiveAvgPool3d((1,1))
+        self.GAP = nn.AdaptiveAvgPool3d((1,1,1))
         self.FC1 = nn.Linear(inchannels,inchannels//reduction)
         self.FC2 = nn.Linear(inchannels//reduction,inchannels)
 
@@ -17,7 +17,7 @@ class SE_block(nn.Module):
         x = nn.ReLU()(x)
         x = self.FC2(x)
         x = nn.Sigmoid()(x)
-        x = x.view(x.size(0),x.size(1),1,1)
+        x = x.view(x.size(0),x.size(1),1,1,1)
         return model_input * x
 
 class AC_layer(nn.Module):
@@ -75,12 +75,12 @@ class ScaleDense(nn.Module):
         super(ScaleDense,self).__init__()
         self.nb_block = nb_block
         self.pre = nn.Sequential(
-            nn.Conv3d(3,nb_filter,kernel_size=7,stride=1
+            nn.Conv3d(1,nb_filter,kernel_size=7,stride=1
                      ,padding=1,dilation=2),
             nn.ELU(),
             )
         self.block, last_channels = self._make_block(nb_filter,nb_block)
-        self.gap = nn.AdaptiveAvgPool3d((1,1))
+        self.gap = nn.AdaptiveAvgPool3d((1,1,1))
         self.deep_fc = nn.Sequential(
             nn.Linear(last_channels,32,bias=True),
             nn.ELU(),
@@ -116,6 +116,6 @@ def get_parameter_number(net):
 
 if __name__ == '__main__':
     model = ScaleDense(nb_block=5, nb_filter=8)
-    x = torch.rand((10, 3, 224, 224))
+    x = torch.rand((2, 1, 91, 109, 91))
     y = model(x)      
     print(y.shape)  
