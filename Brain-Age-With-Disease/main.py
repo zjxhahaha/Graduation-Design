@@ -16,13 +16,14 @@ from utils.Tools import *
 from utils.lr_scheduler import build_scheduler
 from utils.EarlyStopping import EarlyStopping
 from engine import train_one_epoch,validate_one_epoch
-from network.Matrix_loss import *
-from network.Ranking_loss import rank_difference_loss
+# from network.Matrix_loss import *
+from loss.Ranking_loss import rank_difference_loss
+from loss.Matrix_loss import Matrix_distance_L2_loss, Matrix_distance_L3_loss,Matrix_distance_loss
 from network.resnet import *
 from network.CNN import CNN
 from network.Global_Local_Transformer import GlobalLocalBrainAge
 import torchio as tio 
-
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 # Set Default Parameter
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
@@ -33,16 +34,16 @@ def get_args_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # DataSet
-    parser.add_argument('--train_folder'   ,default='../data/train'         ,type=str, help="Train set data path ")
-    parser.add_argument('--valid_folder'   ,default='../data/valid'         ,type=str, help="Validation set data path ")
-    parser.add_argument('--test_folder'    ,default='../data/test'          ,type=str, help="Test set data path ")
-    parser.add_argument('--excel_path'     ,default='../lables/Training.xls',type=str, help="Excel file path ")
+    parser.add_argument('--train_folder'   ,default="/opt/zhaojinxin/TSAN/brain_age_estimation_transfer_learning/train/"         ,type=str, help="Train set data path ")
+    parser.add_argument('--valid_folder'   ,default="/opt/zhaojinxin/TSAN/brain_age_estimation_transfer_learning/val/"         ,type=str, help="Validation set data path ")
+    parser.add_argument('--test_folder'    ,default="/opt/zhaojinxin/TSAN/brain_age_estimation_transfer_learning/test/"          ,type=str, help="Test set data path ")
+    parser.add_argument('--excel_path'     ,default="/opt/zhaojinxin/TSAN/18_combine.xls",type=str, help="Excel file path ")
     parser.add_argument('--mask_type'      ,default='cube')
-    parser.add_argument('--output_dir', type=str, default='./ckpt/', help='root path for storing checkpoints, logs')
-    parser.add_argument('--num_workers', type=int, default=24, help='pytorch number of worker')
+    parser.add_argument('--output_dir', type=str, default='./ckpt_scale/', help='root path for storing checkpoints, logs')
+    parser.add_argument('--num_workers', type=int, default=8, help='pytorch number of worker')
 
     # Model
-    parser.add_argument('--model', type=str, default='resnet18', help='model name')
+    parser.add_argument('--model', type=str, default='scale', help='model name')
     parser.add_argument('--store_name', type=str, default='', help='experiment store name')
     parser.add_argument('--gpu', type=int, default=None)
 
@@ -78,7 +79,7 @@ def get_args_parser():
     # Training process
     parser.add_argument('--start_epoch',type=int, default=0,metavar='N', help='start epoch')
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train')
-    parser.add_argument('--batch_size', type=int, default=256, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=32, help='batch size')
     parser.add_argument('--print_freq', type=int, default=20, help='logging frequency')
     parser.add_argument('--img_size', type=int, default=224, help='image size used in training')
 
@@ -163,12 +164,19 @@ def main(args, results):
     model_test = model
     
     # following timm: set wd as 0 for bias and norm layers
-    param_groups = optim_factory.add_weight_decay(model, args.weight_decay)
-    optimizer = torch.optim.Adam(param_groups, lr=args.lr, betas=(0.9, 0.95))
+    # param_groups = optim_factory.add_weight_decay(model, args.weight_decay)
+    # optimizer = torch.optim.Adam(param_groups, lr=args.lr, betas=(0.9, 0.95))
+
+    optimizer = torch.optim.Adam(model.parameters()
+                                 , lr=args.lr
+                                 , weight_decay=args.weight_decay
+                                 , betas=(0.9, 0.95)
+                                 , amsgrad=True
+                                 )
     # Learning rate Scheduler 
     lr_scheduler = build_scheduler(args, optimizer, len(train_loader))
     
-    early_stopping = EarlyStopping(patience=10, verbose=True)
+    early_stopping = EarlyStopping(patience=20, verbose=True)
     
     # Define Loss function
     loss_func_dict = {'l1': nn.L1Loss().to(device)
@@ -179,12 +187,13 @@ def main(args, results):
                      ,'matrix_l3':Matrix_distance_L3_loss(p=2)
                      }
         
-    criterion1 = loss_func_dict[args.loss]
-    criterion2 = loss_func_dict[args.aux_loss]
+    criterion1 = loss_func_dict[args.loss]#l1？
+    criterion2 = loss_func_dict[args.aux_loss]#mse
     
     sum_writer = tensorboardX.SummaryWriter(args.output_dir)
 
     # Begin to Train the model
+    #训练步数有规定？
     for epoch in range(args.start_epoch, args.epochs):
         train_stats = train_one_epoch(
                       model=model, data_loader=train_loader, optimizer=optimizer,epoch=epoch,
@@ -210,7 +219,8 @@ def main(args, results):
         sum_writer.add_scalar('HyperPara/lrt', param_group['lr'], epoch)
         
         valid_metric = valid_stats['mae']
-        is_best = valid_metric < best_metric
+        is_best = valid_metric < best_metric#判断是否是最好的
+        #本次测试是最好的
         if is_best:
             best_metric = valid_metric
             
@@ -223,17 +233,17 @@ def main(args, results):
                 ,'state_dict': model.state_dict()
                 ,'optimizer': optimizer.state_dict()}, is_best, args.output_dir,epoch)
         # ===========  early_stopping needs the validation loss or MAE to check if it has decresed 
-        # early_stopping(valid_stats['mae'])        
-        # if early_stopping.early_stop:
-        #     print("======= Early stopping =======")
-        #     break
+        early_stopping(valid_stats['mae'])
+        if early_stopping.early_stop:
+            print("======= Early stopping =======")
+            break
     # cleanup
     torch.cuda.empty_cache()
     
     print('Epo - Mtc')
     mtc_epo = dict(zip(saved_metrics, saved_epochs))
     rank_mtc = sorted(mtc_epo.keys(), reverse=False)
-    
+    #还帮你输出一下最佳的 信息
     try:
         for i in range(len(rank_mtc)):
             if i < 5:
@@ -291,6 +301,7 @@ def main(args, results):
 if __name__ == "__main__":
     
     args = get_args_parser()
+    #相关属性配置
     res = os.path.join(args.output_dir, 'result.txt')
     if os.path.isdir(args.output_dir): 
         if input("### output_dir exists, rm? ###") == 'y':
