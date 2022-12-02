@@ -21,19 +21,29 @@ def train_one_epoch(model, data_loader, optimizer, device, epoch, criterion_1, c
         # =========== convert male lable to one hot type =========== #
         img = img.to(device)
         img_mask = img_mask.to(device)
-        
+
+        # 使用性别标签，处理性别
+        male = torch.unsqueeze(male, 1)
+        male = torch.zeros(male.shape[0], 2).scatter_(1, male, 1)
+        male = male.to(device).type(torch.FloatTensor)
+
         target = target.type(torch.FloatTensor).to(device)
 
         # =========== compute output and loss =========== #
         model.train()
         model.zero_grad()
-        raw_img_out = model(img)
-        mask_img_out = model(img_mask)
+        # print(img.shape)
+
+        #现在增设性别标签
+        raw_img_out = model(img,male)
+
+        mask_img_out = model(img_mask,male)
         
         if args.model == 'glt':
             Loss1_list, Loss2_list = [], []
             for y_pred in out:
                 sub_loss1 = criterion_1(y_pred, target)
+                #这里计算的应该是总体上的平均值
                 Loss1_list.append(sub_loss1)
                 
                 if args.lambd > 0:
@@ -47,20 +57,23 @@ def train_one_epoch(model, data_loader, optimizer, device, epoch, criterion_1, c
             
         else:
             # =========== compute loss =========== #
+            # 混合在一起用MAE？
             loss1_0 = criterion_1(raw_img_out, target)
             loss1_1 = criterion_1(mask_img_out, target)
             loss1_2 = criterion_1(mask_img_out, raw_img_out)
-            loss1 = (loss1_0 + loss1_1) + args.gamma * loss1_2
+            loss1 = (loss1_0 + 2*loss1_1) + args.gamma * loss1_2
 
             if args.lambd > 0:
+
                 loss2_0 = criterion_2(raw_img_out, target)
                 loss2_1 = criterion_2(mask_img_out, target)
                 loss2_2 = criterion_2(mask_img_out, raw_img_out)
-                loss2 = (loss2_0 + loss2_1) + args.gamma * loss2_2
+                loss2 = (loss2_0 + 2*loss2_1) + args.gamma * loss2_2
             else:
                 loss2 = 0
         loss = loss1 + args.lambd * loss2
-        
+        #loss2是mse
+
         mae = metric(mask_img_out.detach(), target.detach().cpu())
         losses.update(loss, img.size(0))
         LOSS1.update(loss1,img.size(0))
@@ -88,7 +101,8 @@ def train_one_epoch(model, data_loader, optimizer, device, epoch, criterion_1, c
                 optimizer.zero_grad()
         else:
             optimizer.step()
-            
+
+        # break
     return {'loss':losses.avg, 'mae':MAE.avg}
 
 def validate_one_epoch(model, data_loader, criterion_1, criterion_2, device, args):
